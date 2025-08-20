@@ -146,7 +146,7 @@ body {
   background-clip: text;
   margin: 0;
   position: relative;
-  color: var(--text-primary);
+  color: var(--primary-color) !important;
 }
 
 .title-glow {
