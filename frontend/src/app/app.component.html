@@ -1,0 +1,202 @@
+<div class="container">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <h1 class="title">
+        <i class="fas fa-search"></i>
+        {{ title }}
+      </h1>
+      <p class="subtitle">Powered by AI - Research any topic with web search and intelligent summarization</p>
+    </div>
+  </header>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" *ngIf="stats">
+    <div class="stat-item">
+      <span class="stat-number">{{ stats.total_queries }}</span>
+      <span class="stat-label">Total Queries</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number">{{ stats.success_rate | number:'1.0-1' }}%</span>
+      <span class="stat-label">Success Rate</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number">{{ stats.recent_queries_24h }}</span>
+      <span class="stat-label">Last 24h</span>
+    </div>
+  </div>
+
+  <!-- Search Section -->
+  <div class="search-section">
+    <div class="search-container">
+      <div class="search-input-group">
+        <input 
+          type="text" 
+          [(ngModel)]="query" 
+          placeholder="Enter your research query (e.g., 'latest AI developments in healthcare')"
+          class="search-input"
+          [disabled]="loading"
+          (keyup.enter)="performResearch()"
+        >
+        <button 
+          (click)="performResearch()" 
+          class="search-btn"
+          [disabled]="loading || !query.trim()"
+        >
+          <i class="fas fa-search" *ngIf="!loading"></i>
+          <i class="fas fa-spinner fa-spin" *ngIf="loading"></i>
+          {{ loading ? 'Researching...' : 'Research' }}
+        </button>
+      </div>
+      
+      <div class="action-buttons">
+        <button (click)="toggleHistory()" class="btn btn-secondary">
+          <i class="fas fa-history"></i>
+          History
+        </button>
+        <button (click)="clearResults()" class="btn btn-secondary" *ngIf="researchResult || error">
+          <i class="fas fa-times"></i>
+          Clear
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Display -->
+  <div class="error-container" *ngIf="error">
+    <div class="error-message">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span>{{ error }}</span>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading">
+    <div class="loading-spinner">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Conducting research...</p>
+      <p class="loading-subtitle">Searching the web and analyzing results with AI</p>
+    </div>
+  </div>
+
+  <!-- Research History -->
+  <div class="history-container" *ngIf="showHistory">
+    <div class="history-header">
+      <h3>Research History</h3>
+      <button (click)="toggleHistory()" class="btn btn-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="history-list" *ngIf="researchHistory.length > 0">
+      <div 
+        class="history-item" 
+        *ngFor="let item of researchHistory"
+        (click)="loadFromHistory(item)"
+      >
+        <div class="history-query">{{ item.query }}</div>
+        <div class="history-meta">
+          <span class="history-date">{{ formatDate(item.created_at) }}</span>
+          <span class="history-status" [ngClass]="getStatusColor(item.status)">
+            {{ item.status }}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="history-empty" *ngIf="researchHistory.length === 0">
+      <p>No research history found.</p>
+    </div>
+  </div>
+
+  <!-- Research Results -->
+  <div class="results-container" *ngIf="researchResult && !loading">
+    <div class="result-card">
+      <!-- Title -->
+      <div class="result-header">
+        <h2 class="result-title">{{ researchResult.title }}</h2>
+        <button (click)="copyToClipboard(researchResult.title)" class="btn btn-icon" title="Copy title">
+          <i class="fas fa-copy"></i>
+        </button>
+      </div>
+
+      <!-- Summary -->
+      <div class="result-section">
+        <h3 class="section-title">
+          <i class="fas fa-file-alt"></i>
+          Summary
+        </h3>
+        <div class="summary-content">
+          <p>{{ researchResult.summary }}</p>
+          <button (click)="copyToClipboard(researchResult.summary)" class="btn btn-small">
+            <i class="fas fa-copy"></i>
+            Copy Summary
+          </button>
+        </div>
+      </div>
+
+      <!-- Key Points -->
+      <div class="result-section" *ngIf="researchResult.key_points.length > 0">
+        <h3 class="section-title">
+          <i class="fas fa-list-ul"></i>
+          Key Points
+        </h3>
+        <div class="key-points-list">
+          <div class="key-point-item" *ngFor="let point of researchResult.key_points; let i = index">
+            <span class="point-number">{{ i + 1 }}</span>
+            <span class="point-text">{{ point }}</span>
+          </div>
+        </div>
+        <button (click)="copyToClipboard(researchResult.key_points.join('\n'))" class="btn btn-small">
+          <i class="fas fa-copy"></i>
+          Copy Key Points
+        </button>
+      </div>
+
+      <!-- Sources -->
+      <div class="result-section" *ngIf="researchResult.sources.length > 0">
+        <h3 class="section-title">
+          <i class="fas fa-link"></i>
+          Sources
+        </h3>
+        <div class="sources-list">
+          <div class="source-item" *ngFor="let source of researchResult.sources; let i = index">
+            <div class="source-content">
+              <span class="source-number">{{ i + 1 }}</span>
+              <span class="source-title">{{ source.title }}</span>
+            </div>
+            <div class="source-actions">
+              <button (click)="openSource(source.url)" class="btn btn-small btn-primary" title="Open source">
+                <i class="fas fa-external-link-alt"></i>
+                Open
+              </button>
+              <button (click)="copyToClipboard(source.url)" class="btn btn-small" title="Copy URL">
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Options -->
+      <div class="export-section">
+        <h4>Export Research</h4>
+        <div class="export-buttons">
+          <button (click)="copyToClipboard(getFullResearchText())" class="btn btn-export">
+            <i class="fas fa-copy"></i>
+            Copy Full Report
+          </button>
+          <button (click)="downloadAsText()" class="btn btn-export">
+            <i class="fas fa-download"></i>
+            Download as Text
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>AI Research Assistant - Powered by LangChain, SerpAPI, and GPT/Gemini</p>
+    <p>Built for comprehensive research with web search and AI-powered analysis</p>
+  </footer>
+</div>
+

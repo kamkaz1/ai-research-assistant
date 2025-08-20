@@ -1,0 +1,253 @@
+import os
+import logging
+import json
+import sqlite3
+from datetime import datetime
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from research_agent import ResearchAgent
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+CORS(app)
+
+# Database setup
+def init_db():
+    """Initialize SQLite database for storing research queries and results."""
+    conn = sqlite3.connect('research_history.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS research_queries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query TEXT NOT NULL,
+            result TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'success',
+            error_message TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    logger.info("Database initialized successfully")
+
+def save_research_query(query, result=None, status='success', error_message=None):
+    """Save research query and result to database."""
+    try:
+        conn = sqlite3.connect('research_history.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO research_queries (query, result, status, error_message)
+            VALUES (?, ?, ?, ?)
+        ''', (query, json.dumps(result) if result else None, status, error_message))
+        conn.commit()
+        conn.close()
+        logger.info(f"Research query saved to database: {query}")
+    except Exception as e:
+        logger.error(f"Failed to save research query to database: {e}")
+
+# Initialize ResearchAgent
+try:
+    research_agent = ResearchAgent()
+    logger.info("ResearchAgent initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize ResearchAgent: {e}")
+    research_agent = None
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "agent_initialized": research_agent is not None
+    }), 200
+
+@app.route('/research', methods=['GET'])
+def research():
+    """
+    Research endpoint that takes a query parameter and returns structured research notes.
+    
+    Query Parameters:
+    - query (required): The research query string
+    
+    Returns:
+    - JSON object with structured research note containing title, summary, key_points, and sources
+    """
+    query = request.args.get('query')
+    
+    if not query:
+        logger.warning("Research endpoint called without a query parameter")
+        return jsonify({
+            "error": "Query parameter is required.",
+            "usage": "GET /research?query=your_research_query"
+        }), 400
+
+    if not query.strip():
+        logger.warning("Research endpoint called with empty query")
+        return jsonify({
+            "error": "Query cannot be empty."
+        }), 400
+
+    logger.info(f"Received research query: {query}")
+
+    try:
+        if not research_agent:
+            error_msg = "Research agent not initialized. Check backend logs for details."
+            logger.error(error_msg)
+            save_research_query(query, status='error', error_message=error_msg)
+            return jsonify({"error": error_msg}), 500
+
+        # Perform research
+        result = research_agent.run_research(query)
+        
+        # Save successful result to database
+        save_research_query(query, result)
+        
+        logger.info(f"Successfully processed query: {query}")
+        return jsonify({
+            "query": query,
+            "timestamp": datetime.now().isoformat(),
+            "result": result
+        }), 200
+
+    except Exception as e:
+        error_msg = f"Failed to perform research: {str(e)}"
+        logger.error(f"Error processing research query '{query}': {e}")
+        save_research_query(query, status='error', error_message=error_msg)
+        return jsonify({
+            "error": "Failed to perform research.",
+            "details": str(e),
+            "query": query
+        }), 500
+
+@app.route('/history', methods=['GET'])
+def get_research_history():
+    """
+    Get research history from database.
+    
+    Query Parameters:
+    - limit (optional): Number of recent queries to return (default: 10)
+    - offset (optional): Number of queries to skip (default: 0)
+    
+    Returns:
+    - JSON array of recent research queries and results
+    """
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        conn = sqlite3.connect('research_history.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, query, result, created_at, status, error_message
+            FROM research_queries
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        ''', (limit, offset))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        history = []
+        for row in rows:
+            history.append({
+                "id": row[0],
+                "query": row[1],
+                "result": json.loads(row[2]) if row[2] else None,
+                "created_at": row[3],
+                "status": row[4],
+                "error_message": row[5]
+            })
+        
+        return jsonify({
+            "history": history,
+            "count": len(history)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve research history: {e}")
+        return jsonify({
+            "error": "Failed to retrieve research history.",
+            "details": str(e)
+        }), 500
+
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    """Get research statistics."""
+    try:
+        conn = sqlite3.connect('research_history.db')
+        cursor = conn.cursor()
+        
+        # Total queries
+        cursor.execute('SELECT COUNT(*) FROM research_queries')
+        total_queries = cursor.fetchone()[0]
+        
+        # Successful queries
+        cursor.execute('SELECT COUNT(*) FROM research_queries WHERE status = "success"')
+        successful_queries = cursor.fetchone()[0]
+        
+        # Failed queries
+        cursor.execute('SELECT COUNT(*) FROM research_queries WHERE status = "error"')
+        failed_queries = cursor.fetchone()[0]
+        
+        # Recent activity (last 24 hours)
+        cursor.execute('''
+            SELECT COUNT(*) FROM research_queries 
+            WHERE created_at >= datetime('now', '-1 day')
+        ''')
+        recent_queries = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return jsonify({
+            "total_queries": total_queries,
+            "successful_queries": successful_queries,
+            "failed_queries": failed_queries,
+            "success_rate": (successful_queries / total_queries * 100) if total_queries > 0 else 0,
+            "recent_queries_24h": recent_queries
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve statistics: {e}")
+        return jsonify({
+            "error": "Failed to retrieve statistics.",
+            "details": str(e)
+        }), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+        "error": "Endpoint not found.",
+        "available_endpoints": [
+            "GET /health",
+            "GET /research?query=<your_query>",
+            "GET /history?limit=<number>&offset=<number>",
+            "GET /stats"
+        ]
+    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal server error: {error}")
+    return jsonify({
+        "error": "Internal server error.",
+        "message": "An unexpected error occurred. Please try again later."
+    }), 500
+
+if __name__ == '__main__':
+    # Initialize database
+    init_db()
+    
+    # Start Flask app
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
