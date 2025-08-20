@@ -41,11 +41,24 @@ export class AppComponent implements OnInit {
   researchHistory: ResearchHistory[] = [];
   showHistory: boolean = false;
   stats: any = null;
+  showCopiedMessage: boolean = false;
 
   constructor(private http: HttpClient) { }
 
   ngOnInit() {
     this.loadStats();
+    this.addAnimationClasses();
+  }
+
+  addAnimationClasses() {
+    // Add fade-in animation to main elements
+    setTimeout(() => {
+      const elements = document.querySelectorAll('.header, .search-interface, .stats-dashboard');
+      elements.forEach((el, index) => {
+        (el as HTMLElement).classList.add('fade-in');
+        (el as HTMLElement).style.animationDelay = `${index * 0.2}s`;
+      });
+    }, 100);
   }
 
   performResearch() {
@@ -66,6 +79,7 @@ export class AppComponent implements OnInit {
           this.researchResult = response.result;
           this.loading = false;
           this.loadHistory(); // Refresh history after new research
+          this.addResultAnimation();
         },
         error: (err) => {
           console.error('API Error:', err);
@@ -73,6 +87,16 @@ export class AppComponent implements OnInit {
           this.loading = false;
         }
       });
+  }
+
+  addResultAnimation() {
+    // Add slide-up animation to results
+    setTimeout(() => {
+      const resultCard = document.querySelector('.result-card');
+      if (resultCard) {
+        (resultCard as HTMLElement).classList.add('slide-up');
+      }
+    }, 100);
   }
 
   loadHistory() {
@@ -103,6 +127,13 @@ export class AppComponent implements OnInit {
     this.showHistory = !this.showHistory;
     if (this.showHistory) {
       this.loadHistory();
+      // Add animation to history panel
+      setTimeout(() => {
+        const historyPanel = document.querySelector('.history-panel');
+        if (historyPanel) {
+          (historyPanel as HTMLElement).classList.add('slide-up');
+        }
+      }, 100);
     }
   }
 
@@ -111,6 +142,7 @@ export class AppComponent implements OnInit {
     this.researchResult = historyItem.result;
     this.error = null;
     this.showHistory = false;
+    this.addResultAnimation();
   }
 
   clearResults() {
@@ -147,13 +179,16 @@ export class AppComponent implements OnInit {
 
   copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => {
-      // Could add a toast notification here
+      this.showCopiedMessage = true;
+      setTimeout(() => {
+        this.showCopiedMessage = false;
+      }, 2000);
       console.log('Copied to clipboard');
     });
   }
 
   getStatusColor(status: string): string {
-    return status === 'success' ? 'text-success' : 'text-danger';
+    return status === 'success' ? 'success' : 'error';
   }
 
   formatDate(dateString: string): string {
