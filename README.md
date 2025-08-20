@@ -91,13 +91,21 @@ SERPAPI_API_KEY=your_serpapi_key_here
 ```
 
 ### 3. Build and Run with Docker
+
+#### Option 1: Use the convenience script
 ```bash
-docker-compose up --build
+./run-local.sh
+```
+
+#### Option 2: Manual Docker Compose
+```bash
+docker-compose up --build -d
 ```
 
 ### 4. Access the Application
 - **Frontend**: http://localhost
 - **Backend API**: http://localhost:5000
+- **Health Check**: http://localhost/health
 
 ## 📖 Usage
 
