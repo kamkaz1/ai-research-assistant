@@ -10,10 +10,10 @@
 
 ### 1. Prepare Your Repository
 Ensure your project is pushed to GitHub with these files:
-- `docker-compose.yml`
-- `backend/Dockerfile`
-- `frontend/Dockerfile`
-- `railway.toml`
+- `Dockerfile` (main deployment file)
+- `railway.json` (Railway configuration)
+- `backend/` (Flask backend)
+- `frontend/` (Angular frontend)
 - `.env` (with your API keys)
 
 ### 2. Create Railway Account
@@ -25,7 +25,7 @@ Ensure your project is pushed to GitHub with these files:
 1. **Click "New Project"**
 2. **Select "Deploy from GitHub repo"**
 3. **Choose your CerebroGPT repository**
-4. **Railway will auto-detect your Docker setup**
+4. **Railway will use the main Dockerfile for deployment**
 
 ### 4. Configure Environment Variables
 In Railway dashboard, go to your project → Variables tab:
