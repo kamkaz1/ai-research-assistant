@@ -26,8 +26,15 @@ COPY backend/ ./backend/
 # Copy frontend files and build
 COPY frontend/ ./frontend/
 WORKDIR /app/frontend
-RUN npm install && npm run build
+RUN npm install
+RUN npm run build
+RUN ls -la dist/
+RUN ls -la dist/ai-research-assistant-frontend/
 WORKDIR /app
+
+# Copy built frontend to nginx directory
+RUN cp -r /app/frontend/dist/ai-research-assistant-frontend/* /usr/share/nginx/html/
+RUN ls -la /usr/share/nginx/html/
 
 # Copy nginx configuration
 COPY frontend/nginx.conf /etc/nginx/sites-available/default
