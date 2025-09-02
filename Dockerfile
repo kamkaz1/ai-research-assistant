@@ -27,12 +27,18 @@ COPY backend/ ./backend/
 # Copy built frontend to nginx directory
 COPY --from=frontend-build /app/frontend/dist/ai-research-assistant-frontend /usr/share/nginx/html
 
-# Copy simple nginx configuration
-COPY frontend/nginx.conf /etc/nginx/sites-available/default
-RUN ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
+# Remove default nginx configuration and copy our custom config
+RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create startup script
+# Create startup script with debugging
 RUN echo '#!/bin/bash\n\
+echo "=== Starting CerebroGPT Services ==="\n\
+echo "Current directory: $(pwd)"\n\
+echo "Contents of /usr/share/nginx/html:" && ls -la /usr/share/nginx/html\n\
+echo "Nginx configuration:" && cat /etc/nginx/conf.d/default.conf\n\
+echo "Testing nginx configuration..."\n\
+nginx -t && echo "Nginx config is valid"\n\
 echo "Starting nginx..."\n\
 nginx -g "daemon off;" &\n\
 echo "Starting Flask backend..."\n\
