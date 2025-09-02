@@ -1,10 +1,47 @@
-# Use Python base image for Railway
-FROM python:3.11-slim
-
-# Set working directory
+# Use Node.js base image for frontend build
+FROM node:18-alpine AS frontend-build
 WORKDIR /app
 
-# Install system dependencies (minimal)
+# Install dependencies first for better caching
+COPY frontend/package*.json ./frontend/
+WORKDIR /app/frontend
+
+# Install dependencies with verbose output
+RUN echo "Installing npm dependencies..." && \
+    npm ci --only=production --verbose && \
+    echo "Dependencies installed successfully"
+
+# Copy frontend source
+COPY frontend/ .
+
+# Build with verbose output and error checking
+RUN echo "Starting Angular build..." && \
+    npm run build && \
+    echo "Angular build completed successfully" && \
+    echo "Build output directory contents:" && \
+    ls -la && \
+    echo "Dist directory contents:" && \
+    ls -la dist/ && \
+    echo "Frontend dist directory contents:" && \
+    ls -la dist/ai-research-assistant-frontend/ && \
+    echo "Checking for index.html:" && \
+    ls -la dist/ai-research-assistant-frontend/index.html && \
+    echo "Checking for main.js:" && \
+    ls -la dist/ai-research-assistant-frontend/main*.js
+
+# Verify build output exists
+RUN if [ ! -f "dist/ai-research-assistant-frontend/index.html" ]; then \
+        echo "ERROR: index.html not found after build!" && \
+        echo "Build output contents:" && \
+        ls -la dist/ai-research-assistant-frontend/ && \
+        exit 1; \
+    fi
+
+# Use Python base image for backend and final runtime
+FROM python:3.11-slim
+WORKDIR /app
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     nginx \
@@ -12,35 +49,31 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Install Node.js for frontend build
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs
-
-# Copy backend requirements and install
+# Install backend dependencies
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source
 COPY backend/ ./backend/
 
-# Copy frontend files and build
-COPY frontend/ ./frontend/
-WORKDIR /app/frontend
-RUN npm install
-RUN npm run build --verbose
-RUN echo "=== Build output directory ===" && ls -la
-RUN echo "=== Dist directory ===" && ls -la dist/ || echo "Dist directory not found"
-RUN echo "=== Frontend dist directory ===" && ls -la dist/ai-research-assistant-frontend/ || echo "Frontend dist directory not found"
-WORKDIR /app
+# Copy built frontend from frontend-build stage
+COPY --from=frontend-build /app/frontend/dist/ai-research-assistant-frontend /usr/share/nginx/html
 
-# Copy built frontend to nginx directory
-RUN echo "=== Copying frontend files ===" && \
-    cp -r /app/frontend/dist/ai-research-assistant-frontend/* /usr/share/nginx/html/ && \
-    echo "=== Nginx html directory ===" && \
-    ls -la /usr/share/nginx/html/
+# Verify frontend files were copied
+RUN echo "Verifying frontend files in nginx directory:" && \
+    ls -la /usr/share/nginx/html/ && \
+    echo "Checking for index.html:" && \
+    ls -la /usr/share/nginx/html/index.html && \
+    echo "Checking for main.js:" && \
+    ls -la /usr/share/nginx/html/main*.js
 
 # Copy nginx configuration
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Verify nginx configuration
+RUN echo "Verifying nginx configuration:" && \
+    nginx -t && \
+    echo "Nginx configuration is valid"
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
