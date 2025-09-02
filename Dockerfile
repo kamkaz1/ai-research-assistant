@@ -76,19 +76,21 @@ RUN echo "Verifying frontend files in nginx directory:" && \
     echo "Checking for main.js:" && \
     ls -la /usr/share/nginx/html/main*.js
 
-# Copy nginx configuration
+# Copy nginx configuration template
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Verify nginx configuration
-RUN echo "Verifying nginx configuration:" && \
-    nginx -t && \
-    echo "Nginx configuration is valid"
-
-# Create startup script
+# Create startup script that substitutes PORT and starts services
 RUN echo '#!/bin/bash\n\
+echo "Substituting PORT in nginx configuration..."\n\
+PORT_VALUE=${PORT:-5000}\n\
+echo "Using port: $PORT_VALUE"\n\
+sed -i "s/PORT_PLACEHOLDER/$PORT_VALUE/g" /etc/nginx/conf.d/default.conf\n\
+echo "Verifying nginx configuration..."\n\
+nginx -t && \
+echo "Nginx configuration is valid" && \
 echo "Starting nginx..."\n\
 nginx -g "daemon off;" &\n\
-echo "Starting Flask backend on port ${PORT:-5000}..."\n\
+echo "Starting Flask backend on port $PORT_VALUE..."\n\
 cd /app/backend\n\
 export FLASK_APP=app.py\n\
 export FLASK_ENV=production\n\
