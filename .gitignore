@@ -70,3 +70,5 @@ logs/
 .coverage
 .pytest_cache/
 htmlcov/
+.pre-commit-config.yaml
+trufflehog/
