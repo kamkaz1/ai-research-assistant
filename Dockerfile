@@ -88,8 +88,10 @@ RUN echo "Verifying nginx configuration:" && \
 RUN echo '#!/bin/bash\n\
 echo "Starting nginx..."\n\
 nginx -g "daemon off;" &\n\
-echo "Starting Flask backend..."\n\
+echo "Starting Flask backend on port ${PORT:-5000}..."\n\
 cd /app/backend\n\
+export FLASK_APP=app.py\n\
+export FLASK_ENV=production\n\
 python app.py' > /start.sh && chmod +x /start.sh
 
 # Expose port
