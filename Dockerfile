@@ -2,13 +2,19 @@
 FROM node:18-alpine AS frontend-build
 WORKDIR /app
 
-# Install dependencies first for better caching
-COPY frontend/package*.json ./frontend/
+# Copy package.json only (ignore package-lock.json to avoid conflicts)
+COPY frontend/package.json ./frontend/
 WORKDIR /app/frontend
 
-# Install dependencies with verbose output
-RUN echo "Installing npm dependencies..." && \
-    npm ci --only=production --verbose && \
+# Clear npm cache and do a clean install with fallback
+RUN echo "Clearing npm cache..." && \
+    npm cache clean --force && \
+    echo "Removing any existing node_modules..." && \
+    rm -rf node_modules package-lock.json && \
+    echo "Installing npm dependencies..." && \
+    (npm install --verbose --no-optional || \
+     (echo "First install failed, trying with legacy peer deps..." && \
+      npm install --verbose --no-optional --legacy-peer-deps)) && \
     echo "Dependencies installed successfully"
 
 # Copy frontend source
@@ -16,7 +22,10 @@ COPY frontend/ .
 
 # Build with verbose output and error checking
 RUN echo "Starting Angular build..." && \
-    npm run build && \
+    (npm run build || \
+     (echo "Build failed, trying with legacy peer deps..." && \
+      npm install --legacy-peer-deps && \
+      npm run build)) && \
     echo "Angular build completed successfully" && \
     echo "Build output directory contents:" && \
     ls -la && \
