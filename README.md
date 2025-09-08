@@ -16,56 +16,7 @@ An intelligent AI-powered research assistant that combines web search capabiliti
 - **Real-time Statistics**: Monitor usage and success rates
 - **Docker Deployment**: Easy containerized deployment
 
-## 🏗️ Architecture
 
-```
-cerebrogpt/
-├── backend/                 # Flask API server
-│   ├── app.py              # Main Flask application
-│   ├── research_agent.py   # AI research logic
-│   ├── requirements.txt    # Python dependencies
-│   ├── tests/              # Unit tests
-│   └── Dockerfile          # Backend container
-├── frontend/               # Angular web application
-│   ├── src/                # Angular source code
-│   ├── package.json        # Node.js dependencies
-│   ├── angular.json        # Angular configuration
-│   ├── nginx.conf          # Nginx configuration
-│   └── Dockerfile          # Frontend container
-├── docker-compose.yml      # Container orchestration
-├── env.example             # Environment variables template
-└── README.md              # This file
-```
-
-## 🛠️ Tech Stack
-
-### Backend
-- **Python 3.9+** - Core programming language
-- **Flask** - Web framework for API
-- **LangChain** - LLM orchestration framework
-- **OpenAI GPT-4** / **Google Gemini** - Language models
-- **SerpAPI** - Web search API
-- **SQLite** - Database for research history
-- **Pytest** - Unit testing framework
-
-### Frontend
-- **Angular 17** - Modern web framework
-- **TypeScript** - Type-safe JavaScript
-- **CSS3** - Modern styling with gradients and animations
-- **Font Awesome** - Icon library
-- **Nginx** - Web server and reverse proxy
-
-### DevOps
-- **Docker** - Containerization
-- **Docker Compose** - Multi-container orchestration
-- **Nginx** - Reverse proxy and static file serving
-
-## 📋 Prerequisites
-
-- Docker and Docker Compose
-- API keys for:
-  - OpenAI GPT-4 (recommended) or Google Gemini
-  - SerpAPI
 
 ## 🚀 Quick Start
 
@@ -164,47 +115,7 @@ GET /history
 GET /stats
 ```
 
-## 🧪 Testing
 
-### Backend Tests
-```bash
-# Run all tests
-docker-compose exec backend python -m pytest
-
-# Run specific test file
-docker-compose exec backend python -m pytest tests/test_agent.py
-
-# Run with coverage
-docker-compose exec backend python -m pytest --cov=.
-```
-
-### Frontend Tests
-```bash
-# Run unit tests
-docker-compose exec frontend npm test
-
-# Run e2e tests
-docker-compose exec frontend npm run e2e
-```
-
-## 🔒 Security
-
-- **Environment Variables**: All API keys stored securely in environment variables
-- **CORS Configuration**: Properly configured for frontend-backend communication
-- **Input Validation**: All user inputs are validated and sanitized
-- **Error Handling**: Comprehensive error handling without exposing sensitive information
-
-## 📊 Monitoring
-
-### Built-in Statistics
-- Total research queries
-- Success rate percentage
-- Recent activity (last 24 hours)
-
-### Logs
-- Backend logs available in Docker containers
-- Structured logging for debugging
-- Error tracking and reporting
 
 ## 🚀 Deployment
 
@@ -234,74 +145,17 @@ docker-compose exec frontend npm run e2e
 - **Theme**: Dark theme with futuristic design
 - **Responsive**: Mobile-friendly interface
 
-## 🐛 Troubleshooting
 
-### Common Issues
 
-1. **API Key Errors**
-   - Verify API keys are correctly set in `.env`
-   - Check API key permissions and quotas
 
-2. **Docker Issues**
-   - Ensure Docker and Docker Compose are installed
-   - Check container logs: `docker-compose logs`
 
-3. **Frontend Not Loading**
-   - Verify Nginx configuration
-   - Check frontend container status
 
-4. **Research Failures**
-   - Check SerpAPI quota and API key
-   - Verify internet connectivity
-   - Review backend logs for errors
-
-### Debug Mode
-```bash
-# Enable debug logging
-export FLASK_ENV=development
-docker-compose up --build
-```
-
-## 🤝 Contributing
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Commit your changes**: `git commit -m 'Add amazing feature'`
-4. **Push to the branch**: `git push origin feature/amazing-feature`
-5. **Open a Pull Request**
-
-### Development Setup
-```bash
-# Clone and setup
-git clone <your-fork>
-cd cerebrogpt
-
-# Install dependencies
-pip install -r backend/requirements.txt
-npm install --prefix frontend
-
-# Run development servers
-python backend/app.py  # Backend on :5000
-ng serve --prefix frontend  # Frontend on :4200
-```
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
 
-- **OpenAI** for GPT-4 API
-- **Google** for Gemini AI
-- **SerpAPI** for web search capabilities
-- **LangChain** for LLM orchestration framework
-- **Angular** for the frontend framework
-- **Flask** for the backend framework
 
-## 📞 Support
-
-For support, please open an issue in the GitHub repository or contact the development team.
-
----
 
 **CerebroGPT** - Where AI meets research intelligence! 🧠🤖
