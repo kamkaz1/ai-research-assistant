@@ -57,10 +57,10 @@ NGINX_PID=$!\n\
 echo "Nginx started with PID: $NGINX_PID"\n\
 sleep 2\n\
 echo "Testing nginx is responding:"\n\
-curl -I http://localhost:80/ || echo "Nginx not responding on port 80"\n\
-echo "Starting Flask backend..."\n\
+curl -I http://localhost:8080/ || echo "Nginx not responding on port 8080"\n\
+echo "Starting Flask backend on port 5000..."\n\
 cd /app/backend\n\
-python app.py' > /start.sh && chmod +x /start.sh
+PORT=5000 python app.py' > /start.sh && chmod +x /start.sh
 
-EXPOSE 80
+EXPOSE 8080
 CMD ["/start.sh"]
