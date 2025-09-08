@@ -36,7 +36,7 @@ class ResearchAgent:
         
         try:
             self.llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-exp",
+                model="gemini-1.5-flash",
                 temperature=0.1,
                 google_api_key=google_api_key
             )
