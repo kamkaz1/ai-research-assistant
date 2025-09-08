@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
-  backendUrl: 'http://localhost:5000'
+  // Use relative path so requests go through nginx in all environments
+  backendUrl: ''
 };
 

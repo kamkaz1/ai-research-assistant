@@ -1,5 +1,6 @@
 export const environment = {
   production: true,
-  backendUrl: 'http://localhost:5000'
+  // Use relative path behind nginx in production
+  backendUrl: ''
 };
 

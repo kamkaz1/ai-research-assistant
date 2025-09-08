@@ -73,7 +73,7 @@ export class AppComponent implements OnInit {
 
     const encodedQuery = encodeURIComponent(this.query.trim());
     
-    this.http.get<ApiResponse>(`${environment.backendUrl}/research?query=${encodedQuery}`)
+    this.http.get<ApiResponse>(`/research?query=${encodedQuery}`)
       .subscribe({
         next: (response) => {
           this.researchResult = response.result;
@@ -100,7 +100,7 @@ export class AppComponent implements OnInit {
   }
 
   loadHistory() {
-    this.http.get<{history: ResearchHistory[], count: number}>(`${environment.backendUrl}/history?limit=10`)
+    this.http.get<{history: ResearchHistory[], count: number}>(`/history?limit=10`)
       .subscribe({
         next: (response) => {
           this.researchHistory = response.history;
@@ -112,7 +112,7 @@ export class AppComponent implements OnInit {
   }
 
   loadStats() {
-    this.http.get<any>(`${environment.backendUrl}/stats`)
+    this.http.get<any>(`/stats`)
       .subscribe({
         next: (response) => {
           this.stats = response;
