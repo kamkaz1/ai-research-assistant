@@ -14,8 +14,8 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install nginx
-RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
+# Install nginx and curl for debugging
+RUN apt-get update && apt-get install -y nginx curl && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY backend/requirements.txt .
@@ -36,14 +36,28 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 echo "=== Starting CerebroGPT Services ==="\n\
 echo "Current directory: $(pwd)"\n\
-echo "Contents of /usr/share/nginx/html:" && ls -la /usr/share/nginx/html\n\
-echo "Checking if index.html exists:" && ls -la /usr/share/nginx/html/index.html\n\
-echo "Nginx configuration:" && cat /etc/nginx/conf.d/default.conf\n\
+echo "Contents of /usr/share/nginx/html:"\n\
+ls -la /usr/share/nginx/html\n\
+echo "Checking if index.html exists:"\n\
+if [ -f /usr/share/nginx/html/index.html ]; then\n\
+    echo "✅ index.html found:"\n\
+    ls -la /usr/share/nginx/html/index.html\n\
+    echo "First 5 lines of index.html:"\n\
+    head -5 /usr/share/nginx/html/index.html\n\
+else\n\
+    echo "❌ index.html NOT FOUND in /usr/share/nginx/html"\n\
+fi\n\
+echo "Nginx configuration:"\n\
+cat /etc/nginx/conf.d/default.conf\n\
 echo "Testing nginx configuration..."\n\
 nginx -t && echo "Nginx config is valid"\n\
 echo "Starting nginx..."\n\
 nginx -g "daemon off;" &\n\
-echo "Nginx started with PID: $!"\n\
+NGINX_PID=$!\n\
+echo "Nginx started with PID: $NGINX_PID"\n\
+sleep 2\n\
+echo "Testing nginx is responding:"\n\
+curl -I http://localhost:80/ || echo "Nginx not responding on port 80"\n\
 echo "Starting Flask backend..."\n\
 cd /app/backend\n\
 python app.py' > /start.sh && chmod +x /start.sh
