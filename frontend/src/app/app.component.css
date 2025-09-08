@@ -142,8 +142,8 @@ body {
   font-weight: 800;
   margin: 0;
   position: relative;
-  color: #000000 !important;
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
 }
 
 .title-glow {
