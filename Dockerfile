@@ -31,16 +31,19 @@ COPY --from=frontend-build /app/frontend/dist/ai-research-assistant-frontend /us
 RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create startup script with debugging
+# Create startup script with comprehensive debugging
 RUN echo '#!/bin/bash\n\
+set -e\n\
 echo "=== Starting CerebroGPT Services ==="\n\
 echo "Current directory: $(pwd)"\n\
 echo "Contents of /usr/share/nginx/html:" && ls -la /usr/share/nginx/html\n\
+echo "Checking if index.html exists:" && ls -la /usr/share/nginx/html/index.html\n\
 echo "Nginx configuration:" && cat /etc/nginx/conf.d/default.conf\n\
 echo "Testing nginx configuration..."\n\
 nginx -t && echo "Nginx config is valid"\n\
 echo "Starting nginx..."\n\
 nginx -g "daemon off;" &\n\
+echo "Nginx started with PID: $!"\n\
 echo "Starting Flask backend..."\n\
 cd /app/backend\n\
 python app.py' > /start.sh && chmod +x /start.sh
