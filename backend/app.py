@@ -66,11 +66,64 @@ except Exception as e:
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
+    agent_status = "not_initialized"
+    if research_agent is not None:
+        agent_status = "initialized"
+        try:
+            # Test if we can access the LLM
+            if hasattr(research_agent, 'llm') and research_agent.llm is not None:
+                agent_status = "llm_ready"
+            # Test if we can access the search
+            if hasattr(research_agent, 'search') and research_agent.search is not None:
+                agent_status = "search_ready"
+        except Exception as e:
+            agent_status = f"error: {str(e)}"
+    
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "agent_initialized": research_agent is not None
+        "agent_initialized": research_agent is not None,
+        "agent_status": agent_status,
+        "environment_vars": {
+            "google_api_key_set": bool(os.getenv("GOOGLE_API_KEY")),
+            "serpapi_key_set": bool(os.getenv("SERPAPI_API_KEY"))
+        }
     }), 200
+
+@app.route('/test-agent', methods=['GET'])
+def test_agent():
+    """Test endpoint to verify research agent components."""
+    if not research_agent:
+        return jsonify({
+            "error": "Research agent not initialized",
+            "details": "Check backend logs for initialization errors"
+        }), 500
+    
+    try:
+        # Test LLM initialization
+        llm_status = "ok" if hasattr(research_agent, 'llm') and research_agent.llm else "missing"
+        
+        # Test search initialization  
+        search_status = "ok" if hasattr(research_agent, 'search') and research_agent.search else "missing"
+        
+        # Test prompt template
+        prompt_status = "ok" if hasattr(research_agent, 'research_prompt_template') and research_agent.research_prompt_template else "missing"
+        
+        return jsonify({
+            "status": "agent_components_checked",
+            "llm_status": llm_status,
+            "search_status": search_status,
+            "prompt_status": prompt_status,
+            "timestamp": datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": "Failed to test agent components",
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
 
 @app.route('/research', methods=['GET'])
 def research():
@@ -121,12 +174,16 @@ def research():
         }), 200
 
     except Exception as e:
+        import traceback
         error_msg = f"Failed to perform research: {str(e)}"
+        full_traceback = traceback.format_exc()
         logger.error(f"Error processing research query '{query}': {e}")
+        logger.error(f"Full traceback: {full_traceback}")
         save_research_query(query, status='error', error_message=error_msg)
         return jsonify({
             "error": "Failed to perform research.",
             "details": str(e),
+            "traceback": full_traceback,
             "query": query
         }), 500
 
