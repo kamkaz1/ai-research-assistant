@@ -125,6 +125,37 @@ def test_agent():
             "traceback": traceback.format_exc()
         }), 500
 
+@app.route('/test-serpapi', methods=['GET'])
+def test_serpapi():
+    """Test SerpAPI connection without making a full search."""
+    if not research_agent:
+        return jsonify({
+            "error": "Research agent not initialized"
+        }), 500
+    
+    try:
+        # Test with a simple search
+        test_query = "test"
+        logger.info(f"Testing SerpAPI with query: {test_query}")
+        result = research_agent.search.run(test_query)
+        
+        return jsonify({
+            "status": "serpapi_working",
+            "test_query": test_query,
+            "result_length": len(str(result)) if result else 0,
+            "result_preview": str(result)[:200] if result else "No result"
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"SerpAPI test failed: {e}")
+        return jsonify({
+            "error": "SerpAPI test failed",
+            "details": str(e),
+            "traceback": traceback.format_exc(),
+            "suggestion": "Check your SERPAPI_API_KEY in Render environment variables"
+        }), 500
+
 @app.route('/research', methods=['GET'])
 def research():
     """
