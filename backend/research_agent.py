@@ -91,6 +91,13 @@ class ResearchAgent:
             [2] [Source title] ([URL])
             [3] [Source title] ([URL])
 
+            IMPORTANT: 
+            - Extract actual source titles and URLs from the search results
+            - Use the exact format: [number] Title (URL)
+            - If no URL is available, use: [number] Title
+            - Make sure source titles are descriptive and meaningful
+            - Include at least 3 sources if available
+
             Be specific and use information from the search results."""
         )
     
@@ -244,36 +251,58 @@ class ResearchAgent:
                         key_points.append(point)
                         logger.info(f"Added key point: {point}")
                 elif current_section == "sources" and line.startswith("["):
+                    logger.info(f"Processing source line: '{line}'")
                     try:
                         # Parse source format: [1] Source Title (URL)
-                        parts = line.split('(')
-                        if len(parts) >= 2:
-                            url = parts[-1].replace(")", "").strip()
-                            title_parts = parts[0].split(']')
-                            if len(title_parts) >= 2:
-                                source_title = title_parts[1].strip()
-                                # Ensure URL is properly formatted
-                                if url and not url.startswith(('http://', 'https://')):
-                                    url = 'https://' + url
-                                sources.append({
-                                    "title": source_title,
-                                    "url": url
-                                })
-                                logger.info(f"Added source: {source_title} -> {url}")
-                    except Exception as e:
-                        logger.warning(f"Could not parse source line: {line}. Error: {e}")
-                        # Try to extract URL from the line
+                        # Handle different formats: [1] Title (URL) or [1] Title - URL or [1] Title
+                        source_title = "Source title unavailable"
+                        source_url = ""
+                        
+                        # Extract title and URL
                         if '(' in line and ')' in line:
+                            # Format: [1] Title (URL)
                             url_start = line.find('(') + 1
                             url_end = line.find(')')
-                            url = line[url_start:url_end].strip()
-                            if url and not url.startswith(('http://', 'https://')):
-                                url = 'https://' + url
-                            sources.append({"title": line, "url": url})
-                            logger.info(f"Added source (fallback): {line} -> {url}")
+                            source_url = line[url_start:url_end].strip()
+                            
+                            # Extract title between ] and (
+                            title_start = line.find(']') + 1
+                            title_end = line.find('(')
+                            if title_start < title_end:
+                                source_title = line[title_start:title_end].strip()
+                        elif ' - ' in line:
+                            # Format: [1] Title - URL
+                            parts = line.split(' - ', 1)
+                            if len(parts) == 2:
+                                source_title = parts[0].split(']', 1)[1].strip() if ']' in parts[0] else parts[0].strip()
+                                source_url = parts[1].strip()
                         else:
-                            sources.append({"title": line, "url": ""})
-                            logger.info(f"Added source (no URL): {line}")
+                            # Format: [1] Title (no URL)
+                            if ']' in line:
+                                source_title = line.split(']', 1)[1].strip()
+                        
+                        # Clean up title
+                        if not source_title or source_title == "Source title unavailable":
+                            source_title = f"Source {len(sources) + 1}"
+                        
+                        # Ensure URL is properly formatted
+                        if source_url and not source_url.startswith(('http://', 'https://')):
+                            source_url = 'https://' + source_url
+                        
+                        sources.append({
+                            "title": source_title,
+                            "url": source_url
+                        })
+                        logger.info(f"Added source: '{source_title}' -> '{source_url}'")
+                        
+                    except Exception as e:
+                        logger.warning(f"Could not parse source line: '{line}'. Error: {e}")
+                        # Fallback: add as-is
+                        sources.append({
+                            "title": f"Source {len(sources) + 1}",
+                            "url": ""
+                        })
+                        logger.info(f"Added source (fallback): Source {len(sources)}")
             
             # Final check for summary
             if summary_lines and summary == "No summary available":

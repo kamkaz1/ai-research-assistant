@@ -156,6 +156,48 @@ def test_serpapi():
             "suggestion": "Check your SERPAPI_API_KEY in Render environment variables"
         }), 500
 
+@app.route('/debug-research', methods=['GET'])
+def debug_research():
+    """Debug endpoint to see raw LLM output for source parsing issues."""
+    query = request.args.get('query', 'test query')
+    
+    if not research_agent:
+        return jsonify({"error": "Research agent not initialized"}), 500
+    
+    try:
+        # Perform search only
+        logger.info(f"Debug: Performing search for: {query}")
+        search_results = research_agent.search.run(query)
+        
+        # Process with LLM
+        logger.info("Debug: Processing with LLM...")
+        chain = LLMChain(llm=research_agent.llm, prompt=research_agent.research_prompt_template)
+        raw_output = chain.run(query=query, search_results=search_results)
+        
+        # Extract text content
+        if hasattr(raw_output, 'content'):
+            raw_output = raw_output.content
+        elif isinstance(raw_output, dict) and 'text' in raw_output:
+            raw_output = raw_output['text']
+        else:
+            raw_output = str(raw_output)
+        
+        return jsonify({
+            "query": query,
+            "search_results_length": len(str(search_results)),
+            "search_results_preview": str(search_results)[:500],
+            "raw_llm_output": raw_output,
+            "llm_output_length": len(raw_output)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": "Debug research failed",
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
 @app.route('/research', methods=['GET'])
 def research():
     """
