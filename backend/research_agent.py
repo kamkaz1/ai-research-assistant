@@ -195,8 +195,8 @@ class ResearchAgent:
         try:
             title = "Research Results"
             summary = "No summary available"
-        key_points = []
-        sources = []
+            key_points = []
+            sources = []
 
             # Debug: Log the raw text
             logger.info(f"Raw text to parse: {raw_text}")
