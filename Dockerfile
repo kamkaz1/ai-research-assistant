@@ -35,6 +35,8 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 RUN echo '#!/bin/bash\n\
 set -e\n\
 echo "=== Starting CerebroGPT Services ==="\n\
+export PORT=${PORT:-10000}\n\
+echo "Render PORT is: $PORT"\n\
 echo "Current directory: $(pwd)"\n\
 echo "Contents of /usr/share/nginx/html:"\n\
 ls -la /usr/share/nginx/html\n\
@@ -47,6 +49,8 @@ if [ -f /usr/share/nginx/html/index.html ]; then\n\
 else\n\
     echo "❌ index.html NOT FOUND in /usr/share/nginx/html"\n\
 fi\n\
+echo "Templating nginx listen port..."\n\
+sed -i "s/LISTEN_PORT/$PORT/g" /etc/nginx/conf.d/default.conf\n\
 echo "Nginx configuration:"\n\
 cat /etc/nginx/conf.d/default.conf\n\
 echo "Testing nginx configuration..."\n\
@@ -56,11 +60,15 @@ nginx -g "daemon off;" &\n\
 NGINX_PID=$!\n\
 echo "Nginx started with PID: $NGINX_PID"\n\
 sleep 2\n\
-echo "Testing nginx is responding:"\n\
-curl -I http://localhost:8080/ || echo "Nginx not responding on port 8080"\n\
+echo "Testing nginx is responding on $PORT:"\n\
+curl -I http://localhost:$PORT/ || echo "Nginx not responding on port $PORT"\n\
 echo "Starting Flask backend on port 5000..."\n\
 cd /app/backend\n\
-PORT=5000 python app.py' > /start.sh && chmod +x /start.sh
+PORT=5000 python app.py &\n\
+FLASK_PID=$!\n\
+echo "Flask started with PID: $FLASK_PID"\n\
+echo "=== All services started ==="\n\
+wait' > /start.sh && chmod +x /start.sh
 
-EXPOSE 8080
+EXPOSE 10000
 CMD ["/start.sh"]

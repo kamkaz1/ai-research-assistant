@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: cerebrogpt
+    env: docker
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
