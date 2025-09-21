@@ -224,6 +224,19 @@ def get_stats():
             "details": str(e)
         }), 500
 
+@app.route('/')
+def root():
+    """Root endpoint - should not be reached when nginx is working properly."""
+    return jsonify({
+        "message": "Backend API is running. Frontend should be served by nginx.",
+        "available_endpoints": [
+            "GET /health",
+            "GET /research?query=<your_query>",
+            "GET /history?limit=<number>&offset=<number>",
+            "GET /stats"
+        ]
+    }), 200
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({
@@ -248,6 +261,6 @@ if __name__ == '__main__':
     # Initialize database
     init_db()
     
-    # Start Flask app
+    # Start Flask app - bind to localhost only to avoid conflicts with nginx
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='127.0.0.1', port=port, debug=False)
