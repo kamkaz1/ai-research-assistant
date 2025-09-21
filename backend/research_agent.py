@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from langchain_community.utilities import SerpAPIWrapper
 from langchain.chains import LLMChain
-from langchain_core.prompts import PromptTemplate
+from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Load environment variables from .env file
@@ -32,7 +32,10 @@ class ResearchAgent:
         google_api_key = os.getenv("GOOGLE_API_KEY")
         
         if not google_api_key:
+            logger.error("GOOGLE_API_KEY not found in environment variables")
             raise ValueError("GOOGLE_API_KEY not found in environment variables.")
+        
+        logger.info(f"Found Google API key: {google_api_key[:10]}...")
         
         try:
             self.llm = ChatGoogleGenerativeAI(
@@ -42,18 +45,23 @@ class ResearchAgent:
             )
             logger.info("Initialized Google Gemini model")
         except Exception as e:
+            logger.error(f"Failed to initialize Gemini model: {e}")
             raise ValueError(f"Failed to initialize Gemini model: {e}")
     
     def _initialize_search_tools(self):
         """Initialize search tools."""
         serpapi_api_key = os.getenv("SERPAPI_API_KEY")
         if not serpapi_api_key:
+            logger.error("SERPAPI_API_KEY not found in environment variables")
             raise ValueError("SERPAPI_API_KEY not found in environment variables.")
+        
+        logger.info(f"Found SerpAPI key: {serpapi_api_key[:10]}...")
         
         try:
             self.search = SerpAPIWrapper(serpapi_api_key=serpapi_api_key)
             logger.info("Initialized SerpAPI search tool")
         except Exception as e:
+            logger.error(f"Failed to initialize SerpAPI: {e}")
             raise ValueError(f"Failed to initialize SerpAPI: {e}")
     
     def _initialize_prompts(self):
@@ -126,7 +134,7 @@ class ResearchAgent:
             
             # Process with LLM
             chain = LLMChain(llm=self.llm, prompt=self.research_prompt_template)
-            raw_output = chain.invoke({"query": query, "search_results": search_results})
+            raw_output = chain.run(query=query, search_results=search_results)
             
             # Debug: Log LLM output before conversion
             logger.info(f"LLM output type: {type(raw_output)}")
