@@ -35,8 +35,10 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 RUN echo '#!/bin/bash\n\
 set -e\n\
 echo "=== Starting CerebroGPT Services ==="\n\
-export PORT=${PORT:-10000}\n\
+export LISTEN_PORT=${PORT:-10000}\n\
 echo "Render PORT is: $PORT"\n\
+echo "Nginx will listen on: $LISTEN_PORT"\n\
+echo "Flask will run on: 5000"\n\
 echo "Current directory: $(pwd)"\n\
 echo "Contents of /usr/share/nginx/html:"\n\
 ls -la /usr/share/nginx/html\n\
@@ -50,7 +52,7 @@ else\n\
     echo "❌ index.html NOT FOUND in /usr/share/nginx/html"\n\
 fi\n\
 echo "Templating nginx listen port..."\n\
-sed -i "s/LISTEN_PORT/$PORT/g" /etc/nginx/conf.d/default.conf\n\
+sed -i "s/LISTEN_PORT/$LISTEN_PORT/g" /etc/nginx/conf.d/default.conf\n\
 echo "Nginx configuration:"\n\
 cat /etc/nginx/conf.d/default.conf\n\
 echo "Testing nginx configuration..."\n\
@@ -60,8 +62,8 @@ nginx -g "daemon off;" &\n\
 NGINX_PID=$!\n\
 echo "Nginx started with PID: $NGINX_PID"\n\
 sleep 2\n\
-echo "Testing nginx is responding on $PORT:"\n\
-curl -I http://localhost:$PORT/ || echo "Nginx not responding on port $PORT"\n\
+echo "Testing nginx is responding on $LISTEN_PORT:"\n\
+curl -I http://localhost:$LISTEN_PORT/ || echo "Nginx not responding on port $LISTEN_PORT"\n\
 echo "Starting Flask backend on port 5000..."\n\
 cd /app/backend\n\
 PORT=5000 python app.py &\n\
