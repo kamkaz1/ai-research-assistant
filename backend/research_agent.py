@@ -54,7 +54,7 @@ class ResearchAgent:
         if not serpapi_api_key:
             logger.error("SERPAPI_API_KEY not found in environment variables")
             raise ValueError("SERPAPI_API_KEY not found in environment variables.")
-        
+
         logger.info(f"Found SerpAPI key: {serpapi_api_key[:10]}...")
         
         try:
@@ -92,14 +92,16 @@ class ResearchAgent:
             [3] [Source title] ([URL])
 
             CRITICAL SOURCE FORMATTING RULES:
-            - Extract REAL titles and URLs from the search results
+            - Look for actual URLs in the search results and include them
             - Use EXACT format: [number] Title (URL)
-            - Title should be the actual article/page title, not generic text
-            - URL should be the complete web address starting with http:// or https://
-            - If no URL found, use: [number] Title only
+            - Title should be the actual article/page title from the search results
+            - URL must be a real web address from the search results (http:// or https://)
+            - Copy URLs exactly as they appear in the search results
+            - If you see URLs in the search results, you MUST include them
             - Do NOT use placeholder text like "Source title" or "no url"
+            - Do NOT make up URLs - only use ones found in the search results
             - Make titles descriptive and specific to the content
-            - Include at least 3 sources if available in search results
+            - Include at least 3 sources with real URLs if available in search results
 
             Be specific and use information from the search results."""
         )
@@ -175,11 +177,11 @@ class ResearchAgent:
             
             logger.info(f"Research completed successfully for query: {query}")
             return parsed_output
-            
+
         except Exception as e:
             logger.error(f"Research failed for query '{query}': {e}")
             raise
-    
+
     def _parse_research_note(self, raw_text: str) -> Dict:
         """
         Parse the raw LLM output into a structured format.
@@ -193,9 +195,9 @@ class ResearchAgent:
         try:
             title = "Research Results"
             summary = "No summary available"
-            key_points = []
-            sources = []
-            
+        key_points = []
+        sources = []
+
             # Debug: Log the raw text
             logger.info(f"Raw text to parse: {raw_text}")
             
@@ -207,13 +209,13 @@ class ResearchAgent:
                     "key_points": key_points,
                     "sources": sources
                 }
-            
-            lines = raw_text.split('\n')
-            current_section = None
+
+        lines = raw_text.split('\n')
+        current_section = None
             summary_lines = []
-            
-            for line in lines:
-                line = line.strip()
+
+        for line in lines:
+            line = line.strip()
                 
                 # Debug: Log each line being processed
                 logger.info(f"Processing line: '{line}' in section: {current_section}")
@@ -221,20 +223,20 @@ class ResearchAgent:
                 # Detect section headers (case insensitive)
                 if line.upper().startswith("TITLE:"):
                     title = line.replace("TITLE:", "").strip()
-                    current_section = "title"
+                current_section = "title"
                     logger.info(f"Found title: {title}")
                 elif line.upper().startswith("SUMMARY:"):
-                    current_section = "summary"
+                current_section = "summary"
                     summary_lines = []
                     logger.info("Found summary section")
                 elif line.upper().startswith("KEY POINTS:"):
-                    current_section = "key_points"
+                current_section = "key_points"
                     # Join accumulated summary lines
                     if summary_lines:
                         summary = " ".join(summary_lines).strip()
                         logger.info(f"Final summary: {summary}")
                 elif line.upper().startswith("SOURCES:"):
-                    current_section = "sources"
+                current_section = "sources"
                     # Join accumulated summary lines if not done yet
                     if summary_lines and summary == "No summary available":
                         summary = " ".join(summary_lines).strip()
@@ -248,12 +250,12 @@ class ResearchAgent:
                 elif current_section == "summary" and line and not line.startswith(("-", "[", "TITLE:", "SUMMARY:", "KEY POINTS:", "SOURCES:", "IMPORTANT GUIDELINES:")):
                     summary_lines.append(line)
                     logger.info(f"Added to summary: {line}")
-                elif current_section == "key_points" and line.startswith("-"):
+            elif current_section == "key_points" and line.startswith("-"):
                     point = line.replace("-", "").strip()
                     if point and len(point) > 10:  # Only add substantial points
                         key_points.append(point)
                         logger.info(f"Added key point: {point}")
-                elif current_section == "sources" and line.startswith("["):
+            elif current_section == "sources" and line.startswith("["):
                     logger.info(f"Processing source line: '{line}'")
                     try:
                         # Parse source format: [1] Source Title (URL)
@@ -332,37 +334,58 @@ class ResearchAgent:
                         logger.info(f"Extracted summary from text parts: {summary}")
                         break
             
-            # If we have no sources, try to extract from search results
-            if not sources and search_results:
-                logger.info("No sources found in LLM output, attempting to extract from search results")
+            # Always try to extract sources from search results as fallback or supplement
+            if len(sources) < 3 and search_results:
+                logger.info(f"Only {len(sources)} sources found, attempting to extract more from search results")
                 try:
-                    # Try to extract URLs from search results
                     import re
-                    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+                    # More comprehensive URL pattern
+                    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:[^\s<>"{}|\\^`\[\]]*[a-zA-Z0-9])?'
                     found_urls = re.findall(url_pattern, str(search_results))
                     
-                    for i, url in enumerate(found_urls[:3]):  # Limit to 3 sources
+                    # Remove duplicates while preserving order
+                    unique_urls = []
+                    seen = set()
+                    for url in found_urls:
+                        if url not in seen and len(url) > 10:  # Filter out very short URLs
+                            unique_urls.append(url)
+                            seen.add(url)
+                    
+                    logger.info(f"Found {len(unique_urls)} unique URLs in search results")
+                    
+                    for i, url in enumerate(unique_urls[:5]):  # Get up to 5 sources
                         # Try to extract a title from the context around the URL
-                        url_context = str(search_results)[max(0, str(search_results).find(url) - 100):str(search_results).find(url) + 100]
-                        # Look for potential title patterns
-                        title_match = re.search(r'([A-Z][^.!?]*[.!?])', url_context)
-                        title = title_match.group(1).strip() if title_match else f"Source {i+1}"
-                        
-                        sources.append({
-                            "title": title,
-                            "url": url
-                        })
-                        logger.info(f"Extracted source from search results: '{title}' -> '{url}'")
+                        url_pos = str(search_results).find(url)
+                        if url_pos != -1:
+                            # Get context before and after the URL
+                            start = max(0, url_pos - 200)
+                            end = min(len(str(search_results)), url_pos + 200)
+                            url_context = str(search_results)[start:end]
+                            
+                            # Look for potential title patterns in the context
+                            title = self._extract_title_from_context(url_context, url)
+                            
+                            # Only add if we have a meaningful title and valid URL
+                            if title and len(title) > 5 and self._is_valid_url(url):
+                                sources.append({
+                                    "title": title,
+                                    "url": url
+                                })
+                                logger.info(f"Extracted source from search results: '{title}' -> '{url}'")
+                                
+                                # Stop if we have enough sources
+                                if len(sources) >= 3:
+                                    break
                 except Exception as e:
                     logger.warning(f"Failed to extract sources from search results: {e}")
             
             result = {
-                "title": title,
-                "summary": summary,
-                "key_points": key_points,
-                "sources": sources
-            }
-            
+            "title": title,
+            "summary": summary,
+            "key_points": key_points,
+            "sources": sources
+        }
+
             logger.info(f"Final parsed result: {result}")
             return result
             
@@ -420,6 +443,92 @@ class ResearchAgent:
             "key_points": ["No key points available due to search failure"],
             "sources": []
         }
+    
+    def _extract_title_from_context(self, context: str, url: str) -> str:
+        """Extract a meaningful title from the context around a URL."""
+        try:
+            import re
+            
+            # Remove the URL from context to focus on surrounding text
+            context_without_url = context.replace(url, "")
+            
+            # Look for title patterns in the context
+            # Pattern 1: Text in quotes
+            quote_pattern = r'"([^"]{10,100})"'
+            quote_match = re.search(quote_pattern, context_without_url)
+            if quote_match:
+                return quote_match.group(1).strip()
+            
+            # Pattern 2: Text in parentheses
+            paren_pattern = r'\(([^)]{10,100})\)'
+            paren_match = re.search(paren_pattern, context_without_url)
+            if paren_match:
+                return paren_match.group(1).strip()
+            
+            # Pattern 3: Capitalized sentences
+            sentence_pattern = r'([A-Z][^.!?]{10,100}[.!?])'
+            sentence_matches = re.findall(sentence_pattern, context_without_url)
+            if sentence_matches:
+                # Return the longest sentence that looks like a title
+                best_title = max(sentence_matches, key=len)
+                if len(best_title) > 15:
+                    return best_title.strip()
+            
+            # Pattern 4: Text before common separators
+            separators = [' - ', ' | ', ' :: ', ' – ']
+            for sep in separators:
+                if sep in context_without_url:
+                    parts = context_without_url.split(sep)
+                    if len(parts) > 1:
+                        potential_title = parts[0].strip()
+                        if len(potential_title) > 10:
+                            return potential_title
+            
+            # Fallback: extract domain name from URL
+            domain_match = re.search(r'https?://(?:www\.)?([^/]+)', url)
+            if domain_match:
+                domain = domain_match.group(1)
+                return f"Article from {domain}"
+            
+            return "Source"
+            
+        except Exception as e:
+            logger.warning(f"Failed to extract title from context: {e}")
+            return "Source"
+    
+    def _is_valid_url(self, url: str) -> bool:
+        """Validate if a URL is properly formatted and accessible."""
+        try:
+            import re
+            # Basic URL validation
+            url_pattern = r'^https?://[^\s<>"{}|\\^`\[\]]+\.[a-zA-Z]{2,}(?:/[^\s<>"{}|\\^`\[\]]*)?$'
+            if not re.match(url_pattern, url):
+                return False
+            
+            # Check for common invalid patterns
+            invalid_patterns = [
+                r'no%20url',
+                r'example\.com',
+                r'placeholder',
+                r'http://$',
+                r'https://$',
+                r'\.\.\.',
+                r'%20%20'
+            ]
+            
+            for pattern in invalid_patterns:
+                if re.search(pattern, url, re.IGNORECASE):
+                    return False
+            
+            # Check URL length (not too short, not too long)
+            if len(url) < 15 or len(url) > 500:
+                return False
+            
+            return True
+            
+        except Exception as e:
+            logger.warning(f"URL validation failed for {url}: {e}")
+            return False
 
 
 # Example usage and testing
@@ -432,9 +541,9 @@ if __name__ == "__main__":
     if not os.getenv("SERPAPI_API_KEY"):
         print("Please set SERPAPI_API_KEY environment variable")
         exit(1)
-    
+
     try:
-        agent = ResearchAgent()
+    agent = ResearchAgent()
         test_query = "latest advancements in artificial intelligence for healthcare"
         result = agent.run_research(test_query)
         

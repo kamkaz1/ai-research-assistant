@@ -198,6 +198,58 @@ def debug_research():
             "traceback": traceback.format_exc()
         }), 500
 
+@app.route('/debug-urls', methods=['GET'])
+def debug_urls():
+    """Debug endpoint to see what URLs are found in search results."""
+    query = request.args.get('query', 'test query')
+    
+    if not research_agent:
+        return jsonify({"error": "Research agent not initialized"}), 500
+    
+    try:
+        # Perform search only
+        logger.info(f"Debug URLs: Performing search for: {query}")
+        search_results = research_agent.search.run(query)
+        
+        # Extract URLs from search results
+        import re
+        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:[^\s<>"{}|\\^`\[\]]*[a-zA-Z0-9])?'
+        found_urls = re.findall(url_pattern, str(search_results))
+        
+        # Remove duplicates
+        unique_urls = []
+        seen = set()
+        for url in found_urls:
+            if url not in seen and len(url) > 10:
+                unique_urls.append(url)
+                seen.add(url)
+        
+        # Validate URLs
+        valid_urls = []
+        for url in unique_urls:
+            if research_agent._is_valid_url(url):
+                valid_urls.append(url)
+        
+        return jsonify({
+            "query": query,
+            "search_results_length": len(str(search_results)),
+            "search_results_preview": str(search_results)[:1000],
+            "all_urls_found": found_urls,
+            "unique_urls": unique_urls,
+            "valid_urls": valid_urls,
+            "total_urls_found": len(found_urls),
+            "unique_count": len(unique_urls),
+            "valid_count": len(valid_urls)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": "Debug URLs failed",
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
 @app.route('/research', methods=['GET'])
 def research():
     """
