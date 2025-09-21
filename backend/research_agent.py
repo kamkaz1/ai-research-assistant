@@ -91,12 +91,15 @@ class ResearchAgent:
             [2] [Source title] ([URL])
             [3] [Source title] ([URL])
 
-            IMPORTANT: 
-            - Extract actual source titles and URLs from the search results
-            - Use the exact format: [number] Title (URL)
-            - If no URL is available, use: [number] Title
-            - Make sure source titles are descriptive and meaningful
-            - Include at least 3 sources if available
+            CRITICAL SOURCE FORMATTING RULES:
+            - Extract REAL titles and URLs from the search results
+            - Use EXACT format: [number] Title (URL)
+            - Title should be the actual article/page title, not generic text
+            - URL should be the complete web address starting with http:// or https://
+            - If no URL found, use: [number] Title only
+            - Do NOT use placeholder text like "Source title" or "no url"
+            - Make titles descriptive and specific to the content
+            - Include at least 3 sources if available in search results
 
             Be specific and use information from the search results."""
         )
@@ -254,55 +257,61 @@ class ResearchAgent:
                     logger.info(f"Processing source line: '{line}'")
                     try:
                         # Parse source format: [1] Source Title (URL)
-                        # Handle different formats: [1] Title (URL) or [1] Title - URL or [1] Title
-                        source_title = "Source title unavailable"
+                        source_title = ""
                         source_url = ""
                         
-                        # Extract title and URL
-                        if '(' in line and ')' in line:
-                            # Format: [1] Title (URL)
-                            url_start = line.find('(') + 1
-                            url_end = line.find(')')
-                            source_url = line[url_start:url_end].strip()
+                        # Remove the [number] prefix first
+                        if ']' in line:
+                            content_after_bracket = line.split(']', 1)[1].strip()
+                        else:
+                            content_after_bracket = line.strip()
+                        
+                        # Now parse the content after the bracket
+                        if '(' in content_after_bracket and ')' in content_after_bracket:
+                            # Format: Title (URL)
+                            url_start = content_after_bracket.find('(') + 1
+                            url_end = content_after_bracket.find(')')
+                            source_url = content_after_bracket[url_start:url_end].strip()
                             
-                            # Extract title between ] and (
-                            title_start = line.find(']') + 1
-                            title_end = line.find('(')
-                            if title_start < title_end:
-                                source_title = line[title_start:title_end].strip()
-                        elif ' - ' in line:
-                            # Format: [1] Title - URL
-                            parts = line.split(' - ', 1)
+                            # Extract title before the (
+                            source_title = content_after_bracket[:content_after_bracket.find('(')].strip()
+                        elif ' - ' in content_after_bracket:
+                            # Format: Title - URL
+                            parts = content_after_bracket.split(' - ', 1)
                             if len(parts) == 2:
-                                source_title = parts[0].split(']', 1)[1].strip() if ']' in parts[0] else parts[0].strip()
+                                source_title = parts[0].strip()
                                 source_url = parts[1].strip()
                         else:
-                            # Format: [1] Title (no URL)
-                            if ']' in line:
-                                source_title = line.split(']', 1)[1].strip()
+                            # Format: Title only (no URL)
+                            source_title = content_after_bracket.strip()
                         
-                        # Clean up title
-                        if not source_title or source_title == "Source title unavailable":
+                        # Clean up and validate
+                        if not source_title:
                             source_title = f"Source {len(sources) + 1}"
                         
-                        # Ensure URL is properly formatted
-                        if source_url and not source_url.startswith(('http://', 'https://')):
-                            source_url = 'https://' + source_url
+                        # Validate URL
+                        if source_url:
+                            # Remove any invalid characters
+                            source_url = source_url.replace(' ', '').replace('%20', '')
+                            if not source_url.startswith(('http://', 'https://')):
+                                if '.' in source_url:  # Looks like a domain
+                                    source_url = 'https://' + source_url
+                                else:
+                                    source_url = ""  # Invalid URL
                         
-                        sources.append({
-                            "title": source_title,
-                            "url": source_url
-                        })
-                        logger.info(f"Added source: '{source_title}' -> '{source_url}'")
+                        # Only add if we have a meaningful title
+                        if source_title and len(source_title) > 3:
+                            sources.append({
+                                "title": source_title,
+                                "url": source_url
+                            })
+                            logger.info(f"Added source: '{source_title}' -> '{source_url}'")
+                        else:
+                            logger.warning(f"Skipping source with invalid title: '{source_title}'")
                         
                     except Exception as e:
                         logger.warning(f"Could not parse source line: '{line}'. Error: {e}")
-                        # Fallback: add as-is
-                        sources.append({
-                            "title": f"Source {len(sources) + 1}",
-                            "url": ""
-                        })
-                        logger.info(f"Added source (fallback): Source {len(sources)}")
+                        # Don't add invalid sources
             
             # Final check for summary
             if summary_lines and summary == "No summary available":
@@ -322,6 +331,30 @@ class ResearchAgent:
                         summary = part.strip()
                         logger.info(f"Extracted summary from text parts: {summary}")
                         break
+            
+            # If we have no sources, try to extract from search results
+            if not sources and search_results:
+                logger.info("No sources found in LLM output, attempting to extract from search results")
+                try:
+                    # Try to extract URLs from search results
+                    import re
+                    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+                    found_urls = re.findall(url_pattern, str(search_results))
+                    
+                    for i, url in enumerate(found_urls[:3]):  # Limit to 3 sources
+                        # Try to extract a title from the context around the URL
+                        url_context = str(search_results)[max(0, str(search_results).find(url) - 100):str(search_results).find(url) + 100]
+                        # Look for potential title patterns
+                        title_match = re.search(r'([A-Z][^.!?]*[.!?])', url_context)
+                        title = title_match.group(1).strip() if title_match else f"Source {i+1}"
+                        
+                        sources.append({
+                            "title": title,
+                            "url": url
+                        })
+                        logger.info(f"Extracted source from search results: '{title}' -> '{url}'")
+                except Exception as e:
+                    logger.warning(f"Failed to extract sources from search results: {e}")
             
             result = {
                 "title": title,
